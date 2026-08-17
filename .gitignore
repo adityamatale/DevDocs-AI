@@ -1,2 +1,5 @@
 .env
 reference.txt
+__pycache__/
+*.pyc
+data/
