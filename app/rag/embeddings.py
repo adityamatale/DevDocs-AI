@@ -1,3 +1,5 @@
+# rag/embeddings.py
+
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 from app.config.settings import EMBEDDING_MODEL

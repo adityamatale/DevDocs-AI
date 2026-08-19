@@ -1,3 +1,5 @@
+# rag/transformations.py
+
 from llama_index.core.node_parser import SentenceSplitter
 
 from app.utils.logger import logger
@@ -22,10 +24,12 @@ def chunk_documents(documents):
 
 if __name__ == "__main__":
     from app.rag.loaders import load_documents
+    import pprint
 
     documents = load_documents()
 
     nodes = chunk_documents(documents)
+    logger.info(pprint.pp(nodes[0].model_dump()))
 
     logger.info("\nExample chunk:")
     logger.info("------------------")

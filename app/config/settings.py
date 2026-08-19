@@ -20,5 +20,9 @@ VECTOR_DISTANCE = os.getenv("VECTOR_DISTANCE")
 
 
 # Chunking
-CHUNK_SIZE = 512
-CHUNK_OVERLAP = 50
+CHUNK_SIZE = os.getenv("CHUNK_SIZE")
+CHUNK_OVERLAP = os.getenv("CHUNK_OVERLAP")
+
+
+# Retrieval
+TOP_K_RETRIEVALS = os.getenv("TOP_K_RETRIEVALS")

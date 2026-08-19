@@ -1,5 +1,6 @@
 .env
 reference.txt
+mental_model.txt
 __pycache__/
 *.pyc
 data/
