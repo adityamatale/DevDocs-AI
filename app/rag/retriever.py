@@ -7,8 +7,16 @@ from app.rag.embeddings import get_embedding_model
 from app.config import settings
 from app.utils.logger import logger
 
+from FlagEmbedding import FlagReranker
 
-def get_retriever(top_k: int = 5):
+
+reranker = FlagReranker(
+    settings.RERANK_MODEL,
+    use_fp16=True,
+)
+
+
+def get_retriever(candidate_k: int = 5):
 
     client = get_qdrant_client()
     vector_store = get_vector_store(client)
@@ -21,23 +29,62 @@ def get_retriever(top_k: int = 5):
     )
 
     return index.as_retriever(
-        similarity_top_k=top_k
+        similarity_top_k=candidate_k
     )
 
 
-def retrieve(query: str, top_k: int = 5):
+def retrieve(query: str, top_k: int = 5, candidate_k: int = 20):
 
-    retriever = get_retriever(top_k)
+    retriever = get_retriever(candidate_k)
     nodes = retriever.retrieve(query)
 
-    return nodes
+    #### for source/language-aware deduplication
+    # nodes = [
+    #     node for node in nodes
+    #     if "/en/" in node.metadata.get("file_path", "")
+    # ]
+
+    pairs = [
+        [query, node.get_content()]
+        for node in nodes
+    ]
+
+    scores = reranker.compute_score(
+        pairs,
+        normalize=True,
+    )
+
+    # logger.info(f"Reranker scores type: {type(scores)}")
+    # logger.info(f"Reranker scores: {scores}")
+
+    ranked_nodes = sorted(
+        zip(nodes, scores),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+
+    # logger.info(f"top_k={top_k}, type={type(top_k)}")
+
+    return [
+        node
+        for node, _ in ranked_nodes[:top_k]
+    ]
 
 
 if __name__ == "__main__":
 
     query = "How do I create a FastAPI application?"
 
-    nodes = retrieve(query, top_k=settings.TOP_K_RETRIEVALS)
+    queries = [
+        "How do I create a FastAPI application?",
+        "How do I create a VectorStoreIndex in LlamaIndex?",
+        "How does LlamaIndex handle document chunking?",
+        "How can I use Qdrant with LlamaIndex?",
+        "How do I install LlamaIndex?",
+    ]
+
+    # for query in queries:
+    nodes = retrieve(query, top_k=settings.FINAL_TOP_K, candidate_k=settings.CANDIDATE_TOP_K)
 
     logger.info(f"\nQuery: {query}")
     logger.info(f"Retrieved: {len(nodes)} nodes\n")

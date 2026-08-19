@@ -7,6 +7,9 @@ pymupdf
 llama-index-embeddings-huggingface
 llama-index-embeddings-openai
 
+# for reranking
+FlagEmbedding
+
 fastapi
 uvicorn[standard]
 
