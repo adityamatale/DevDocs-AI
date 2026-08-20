@@ -6,6 +6,7 @@ from app.rag.vector_store import get_vector_store, get_qdrant_client
 from app.rag.embeddings import get_embedding_model
 from app.config import settings
 from app.utils.logger import logger
+from app.models import schema
 
 from FlagEmbedding import FlagReranker
 
@@ -66,9 +67,11 @@ def retrieve(query: str, top_k: int = 5, candidate_k: int = 20):
     # logger.info(f"top_k={top_k}, type={type(top_k)}")
 
     return [
-        node
-        for node, _ in ranked_nodes[:top_k]
+        schema.RetrievalResult(node=node, score=score)
+        for node, score in ranked_nodes[:top_k]
     ]
+
+    # return ranked_nodes[:top_k]
 
 
 if __name__ == "__main__":
