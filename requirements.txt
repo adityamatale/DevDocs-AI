@@ -7,6 +7,11 @@ pymupdf
 llama-index-embeddings-huggingface
 llama-index-embeddings-openai
 
+opentelemetry-exporter-otlp-proto-http
+llama-index-observability-otel
+opentelemetry-exporter-otlp
+opentelemetry-sdk
+
 # for reranking
 FlagEmbedding
 

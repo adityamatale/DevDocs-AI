@@ -8,6 +8,10 @@ from app.rag.retriever import retrieve
 from app.config import settings
 from app.utils.logger import logger
 
+from opentelemetry import trace
+
+tracer = trace.get_tracer("devdocs")
+
 
 llm = Ollama(
     model = settings.OLLAMA_MODEL_NAME,
@@ -45,72 +49,108 @@ Answer:
 
 
 def generate_answer_stream(query: str):
+    with tracer.start_as_current_span("rag.query") as span:
+        # telemetry
+        span.set_attribute("rag.query", query)
 
-    results = retrieve(
-        query,
-        top_k=settings.FINAL_TOP_K,
-        candidate_k=settings.CANDIDATE_TOP_K,
-    )
+        results = retrieve(
+            query,
+            top_k=settings.FINAL_TOP_K,
+            candidate_k=settings.CANDIDATE_TOP_K,
+        )
 
-    context = "\n\n---\n\n".join(
-        f"[Source: {result.node.metadata.get('file_path', 'unknown')}]\n"
-        f"{result.node.get_content()}"
-        for result in results
-    )
+        # telemetry
+        span.set_attribute("rag.retrieved_count", len(results))
+        if results:
+            span.set_attribute(
+                "rag.top_score",
+                results[0].score if results[0].score is not None else 0.0
+            )
 
-    prompt = prompt_QA.format(
-        context=context,
-        query=query,
-    )
+        context = "\n\n---\n\n".join(
+            f"[Source: {result.node.metadata.get('file_path', 'unknown')}]\n"
+            f"{result.node.get_content()}"
+            for result in results
+        )
 
-    response = llm.stream_complete(prompt)
+        prompt = prompt_QA.format(
+            context=context,
+            query=query,
+        )
 
-    for chunk in response:
+        response = llm.stream_complete(prompt)
+
+        response_text = ""
+
+        for chunk in response:
+            response_text += chunk.delta
+            yield {
+                "type": "token",
+                "content": chunk.delta,
+            }
+
+        # telemetry
+        span.set_attribute(
+            "rag.response_length",
+            len(response_text)
+        )
+
+        sources = [
+            result.node.metadata.get("file_path", "unknown")
+            for result in results
+        ]
+
         yield {
-            "type": "token",
-            "content": chunk.delta,
+            "type": "sources",
+            "sources": sources,
         }
-
-    sources = [
-        result.node.metadata.get("file_path", "unknown")
-        for result in results
-    ]
-
-    yield {
-        "type": "sources",
-        "sources": sources,
-    }
 
 
 def generate_answer(query: str):
-    results = retrieve(query, top_k=settings.FINAL_TOP_K, candidate_k=settings.CANDIDATE_TOP_K)
+    with tracer.start_as_current_span("rag.query") as span:
+        #telemetry
+        span.set_attribute("rag.query", query)
 
-    for i, result in enumerate(results, 1):
-        logger.info(
-            f"Result {i} | "
-            f"Score: {result.score:.4f} | "
-            f"Source: {result.node.metadata.get('file_path')}"
+        results = retrieve(query, top_k=settings.FINAL_TOP_K, candidate_k=settings.CANDIDATE_TOP_K)
+
+        #telemetry
+        span.set_attribute("rag.retrieved_count", len(results))
+        if results:
+            span.set_attribute(
+                "rag.top_score",
+                results[0].score if results[0].score is not None else 0.0
+            )
+
+        # --- intermediate logging ---
+        # for i, result in enumerate(results, 1):
+        #     logger.info(
+        #         f"Result {i} | "
+        #         f"Score: {result.score:.4f} | "
+        #         f"Source: {result.node.metadata.get('file_path')}"
+        #     )
+
+        context = "\n\n---\n\n".join(
+            f"[Source: {result.node.metadata.get('file_path', 'unknown')}]\n"
+            f"{result.node.get_content()}"
+            for result in results
         )
 
-    context = "\n\n---\n\n".join(
-        f"[Source: {result.node.metadata.get('file_path', 'unknown')}]\n"
-        f"{result.node.get_content()}"
-        for result in results
-    )
+        """ # So the LLM receives:
+            [Source: data/fastapi/docs/en/docs/tutorial/first-steps.md]
+            First Steps...
+            ...
+        
+        """
 
-    """ # So the LLM receives:
-        [Source: data/fastapi/docs/en/docs/tutorial/first-steps.md]
-        First Steps...
-        ...
-    
-    """
+        prompt = prompt_QA.format(
+            context = context,
+            query = query,
+        )
 
-    prompt = prompt_QA.format(
-        context = context,
-        query = query,
-    )
+        response = llm.complete(prompt)
 
-    response = llm.complete(prompt)
+        # telemtry
+        span.set_attribute("rag.response_length", len(response.text))
 
     # return doc source list 
     sources = [
