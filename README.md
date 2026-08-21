@@ -80,6 +80,21 @@ FastAPI
 - Pydantic-validated request bodies (query length constrained to 1–2000 characters).
 - Basic structured error handling across both endpoints.
 
+### 📊 Observability
+- Instrumented with **OpenTelemetry**, using LlamaIndex's built-in OTel instrumentation to automatically trace retrieval, embedding, and LLM calls.
+- Traces exported via **OTLP HTTP** to **Jaeger** (run in Docker, UI on `localhost:16686`).
+- A custom top-level `rag.query` span wraps the full RAG flow, applied consistently to both `generate_answer()` and `generate_answer_stream()`.
+- Four custom span attributes for at-a-glance query insight: `rag.query`, `rag.retrieved_count`, `rag.top_score`, `rag.response_length`.
+- Typical trace shape:
+  ```
+  rag.query
+  ├── VectorIndexRetriever.retrieve
+  │   └── HuggingFaceEmbedding.get_query_embedding
+  └── Ollama.complete
+      └── Ollama.chat
+  ```
+- `Ollama.complete → Ollama.chat` are nested LlamaIndex spans for a single call, not two separate LLM requests.
+
 ### 🐳 Deployment
 - Containerized with a `Dockerfile` and `docker-compose.yml` for running the API and Qdrant together.
 - `setup.sh` for local environment bootstrap.
@@ -93,7 +108,6 @@ FastAPI
 - [ ] Source/language-aware metadata filtering and deduplication at retrieval time
 - [ ] Improved chunking strategy to boost retrieval precision
 - [ ] Query rewriting to better handle ambiguous or underspecified questions
-- [ ] OpenTelemetry instrumentation for observability across the pipeline
 - [ ] Frontend UI
 
 ## Status
