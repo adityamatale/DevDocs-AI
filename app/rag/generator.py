@@ -49,61 +49,69 @@ Answer:
 
 
 def generate_answer_stream(query: str):
-    with tracer.start_as_current_span("rag.query") as span:
-        # telemetry
-        span.set_attribute("rag.query", query)
+    # with tracer.start_as_current_span("rag.query") as span:
+    # telemetry
+    # span.set_attribute("rag.query", query)
 
-        results = retrieve(
-            query,
-            top_k=settings.FINAL_TOP_K,
-            candidate_k=settings.CANDIDATE_TOP_K,
+    results = retrieve(
+        query,
+        top_k=settings.FINAL_TOP_K,
+        candidate_k=settings.CANDIDATE_TOP_K,
+    )
+
+    # --- intermediate logging ---
+    for i, result in enumerate(results, 1):
+        logger.info(
+            f"Result {i} | "
+            f"Score: {result.score:.4f} | "
+            f"Source: {result.node.metadata.get('file_path')}"
         )
 
-        # telemetry
-        span.set_attribute("rag.retrieved_count", len(results))
-        if results:
-            span.set_attribute(
-                "rag.top_score",
-                results[0].score if results[0].score is not None else 0.0
-            )
+    # telemetry
+    # span.set_attribute("rag.retrieved_count", len(results))
+    # if results:
+    #     span.set_attribute(
+    #         "rag.top_score",
+    #         results[0].score if results[0].score is not None else 0.0
+    #     )
 
-        context = "\n\n---\n\n".join(
-            f"[Source: {result.node.metadata.get('file_path', 'unknown')}]\n"
-            f"{result.node.get_content()}"
-            for result in results
-        )
+    context = "\n\n---\n\n".join(
+        f"[Source: {result.node.metadata.get('file_path', 'unknown')}]\n"
+        f"{result.node.get_content()}"
+        for result in results
+    )
 
-        prompt = prompt_QA.format(
-            context=context,
-            query=query,
-        )
+    prompt = prompt_QA.format(
+        context=context,
+        query=query,
+    )
 
-        response = llm.stream_complete(prompt)
+    response = llm.stream_complete(prompt)
 
-        response_text = ""
+    response_text = ""
 
-        for chunk in response:
-            response_text += chunk.delta
-            yield {
-                "type": "token",
-                "content": chunk.delta,
-            }
-
-        # telemetry
-        span.set_attribute(
-            "rag.response_length",
-            len(response_text)
-        )
-
-        sources = [
-            result.node.metadata.get("file_path", "unknown")
-            for result in results
-        ]
-
+    for chunk in response:
+        response_text += chunk.delta
         yield {
-            "type": "sources",
-            "sources": sources,
+            "type": "token",
+            "content": chunk.delta,
         }
+
+    # telemetry
+    # span.set_attribute(
+    #     "rag.response_length",
+    #     len(response_text)
+    # )
+
+    sources = [
+        result.node.metadata.get("file_path", "unknown")
+        for result in results
+    ]
+
+    yield {
+        "type": "sources",
+        "sources": sources,
+    }
 
 
 def generate_answer(query: str):
@@ -122,12 +130,12 @@ def generate_answer(query: str):
             )
 
         # --- intermediate logging ---
-        # for i, result in enumerate(results, 1):
-        #     logger.info(
-        #         f"Result {i} | "
-        #         f"Score: {result.score:.4f} | "
-        #         f"Source: {result.node.metadata.get('file_path')}"
-        #     )
+        for i, result in enumerate(results, 1):
+            logger.info(
+                f"Result {i} | "
+                f"Score: {result.score:.4f} | "
+                f"Source: {result.node.metadata.get('file_path')}"
+            )
 
         context = "\n\n---\n\n".join(
             f"[Source: {result.node.metadata.get('file_path', 'unknown')}]\n"

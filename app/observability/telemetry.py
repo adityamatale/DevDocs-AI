@@ -12,7 +12,7 @@ This tells LlamaIndex:
 instrumentor = LlamaIndexOpenTelemetry(
     service_name_or_resource = settings.OTEL_SERVICE_NAME,
     span_exporter = OTLPSpanExporter(settings.OTLP_EXPORTER_PATH),
-    debug = True,
+    debug = False,
 )
 
 instrumentor.start_registering()

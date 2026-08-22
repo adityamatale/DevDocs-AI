@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 
 from app.models.schema import QueryRequest, QueryResponse
 from app.rag.generator import generate_answer, generate_answer_stream
+from app.utils.logger import logger
 
 import json
 
@@ -12,6 +13,7 @@ router = APIRouter()
 
 @router.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest):
+    # logger.info(f"Received query: {request.query}")
 
     try:
         answer, sources = generate_answer(request.query)
@@ -30,6 +32,7 @@ def query(request: QueryRequest):
 
 @router.post("/query/stream")
 def query_stream(request: QueryRequest):
+    # logger.info(f"Received query: {request.query}")
 
     def event_generator():
         try:
