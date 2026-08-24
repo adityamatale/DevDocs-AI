@@ -96,15 +96,42 @@ def load_documents(data_dir: str = "data"):
 
         files = list(data_path.rglob(f"*{extension}"))
 
-        if not files:
+        # Remove non-English FastAPI translations
+        filtered_files = []
+
+        for file_path in files:
+
+            parts = file_path.parts
+
+            if "fastapi" in parts:
+                try:
+                    fastapi_index = parts.index("fastapi")
+
+                    # Only filter language directories inside fastapi/docs/
+                    if (
+                        len(parts) > fastapi_index + 2
+                        and parts[fastapi_index + 1] == "docs"
+                    ):
+                        language = parts[fastapi_index + 2]
+
+                        # Keep only English FastAPI docs
+                        if language != "en":
+                            continue
+
+                except (ValueError, IndexError):
+                    pass
+
+            filtered_files.append(file_path)
+
+        if not filtered_files:
             continue
         
         logger.info(
-            f"Loading {len(files)} "
+            f"Loading {len(filtered_files)} "
             f"{file_type} files..."
         )
 
-        for file_path in files:
+        for file_path in filtered_files:
 
             try:
                 loaded_documents = load_file(file_path)
@@ -128,10 +155,25 @@ def load_documents(data_dir: str = "data"):
 if __name__ == "__main__":
     documents = load_documents()
 
-    if documents:
-        logger.info("\nExample document:")
-        logger.info("------------------")
-        logger.info(documents[0].text[:500])
+    from collections import Counter
 
-        logger.info("\nMetadata:")
-        logger.info(documents[0].metadata)
+    print("\nFastAPI sources:")
+    print(Counter(
+        doc.metadata.get("source")
+        for doc in documents
+        if doc.metadata.get("source") == "fastapi"
+    ))
+
+    print("\nNon-English FastAPI files:")
+    for doc in documents:
+        path = doc.metadata.get("file_path", "")
+        if "/fastapi/docs/" in path and "/en/" not in path:
+            print(path)
+
+    # if documents:
+    #     logger.info("\nExample document:")
+    #     logger.info("------------------")
+    #     logger.info(documents[0].text[:500])
+
+    #     logger.info("\nMetadata:")
+    #     logger.info(documents[0].metadata)

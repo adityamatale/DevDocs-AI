@@ -62,6 +62,25 @@ FastAPI
 - **Idempotent & resumable:** every chunk gets a deterministic ID (`uuid.uuid5` over source + content), and a pre-run check (`get_existing_ids()`) skips chunks already in Qdrant — so an interrupted ingestion run can simply be restarted without creating duplicate vectors.
 - Designed to survive long unattended runs (`systemd-inhibit` used during development to stop the machine sleeping mid-ingestion).
 
+### 🌍 FastAPI Multi-Language Deduplication
+
+FastAPI's docs ship translated copies of every page (`fastapi/docs/en/`, `/fr/`, `/de/`, `/ru/`, `/hi/`, `/es/`, `/pt/`, ...). Ingesting all locales caused retrieval to return near-duplicate, non-English results for a single query (e.g. `first-steps.md` in five different languages before a useful chunk).
+
+**Fix:** updated the loader to keep `fastapi/docs/en/` and `fastapi/examples/`, and exclude every other FastAPI locale. Other datasets (LlamaIndex, Python) unchanged.
+
+**Result:**
+```
+Total documents loaded: 13293
+FastAPI sources:
+Counter({'fastapi': 2071})
+```
+
+**Note:** an earlier check for `/en/` anywhere in the path wrongly flagged `fastapi/examples/` files as non-English. Fixed by scoping the check to the docs directory:
+```python
+if "/fastapi/docs/" in path and "/en/" not in path:
+    print(path)  # now prints nothing
+```
+
 ### 🔎 Retrieval & Reranking
 - Query embedding via the same Qwen3 embedding model, matched against Qdrant using cosine similarity.
 - Two-stage retrieval for precision: an initial pull of the **top 30** candidates, narrowed to a **final top 10** by a BGE FlagReranker.
@@ -94,6 +113,33 @@ FastAPI
       └── Ollama.chat
   ```
 - `Ollama.complete → Ollama.chat` are nested LlamaIndex spans for a single call, not two separate LLM requests.
+
+## Frontend (Streamlit)
+
+A lightweight Streamlit UI for DevDocs AI, streaming answers with source citations.
+
+**Structure**
+
+```
+streamlit_app/
+├── .streamlit/
+│   ├── config.toml     # theme
+│   └── secrets.toml    # API endpoints
+├── app.py               # entry point
+├── styles.py            # CSS
+├── api.py               # backend calls
+└── chat.py              # session state + rendering
+```
+
+**Setup**
+
+```bash
+cd streamlit_app
+pip install streamlit requests
+streamlit run app.py
+```
+
+Make sure the FastAPI backend is running (`uvicorn app.main:app`) before starting the frontend. Backend URLs are configured in `.streamlit/secrets.toml`.
 
 ### 🐳 Deployment
 - Containerized with a `Dockerfile` and `docker-compose.yml` for running the API and Qdrant together.
