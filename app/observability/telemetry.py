@@ -1,7 +1,10 @@
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from llama_index.observability.otel import LlamaIndexOpenTelemetry
 from app.config import settings
-    
+
+import logging
+
+logging.getLogger("opentelemetry.context").setLevel(logging.CRITICAL)    
 
 # LLamaindex instrumentation
 """

@@ -30,3 +30,6 @@ opentelemetry-sdk
 
 pytest
 httpx
+
+streamlit 
+requests

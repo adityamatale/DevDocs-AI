@@ -21,97 +21,146 @@ llm = Ollama(
 )
 
 
+# prompt_QA = PromptTemplate(
+#     """
+# You are a software documentation assistant.
+
+# Answer the user's question using ONLY the documentation provided below.
+
+# STRICT RULES:
+# - Use your own knowledge for questions unrelated to software documentation.
+# - Do NOT infer information that is not explicitly supported by the documentation.
+# - If the documentation does not contain enough information to answer,
+#   say: "The provided documentation does not contain enough information to answer this question."
+# - Keep the answer concise and technically accurate unless the user question asks to elaborate it.
+# - When making a factual claim, cite the relevant source using:
+#   [Source: <file_path>]
+# - Do not cite sources that do not support the claim.
+
+# Documentation:
+# {context}
+
+# Question:
+# {query}
+
+# Answer:
+# """
+# )
 prompt_QA = PromptTemplate(
     """
-You are a software documentation assistant.
+You are DevDocs, a helpful software documentation assistant.
 
-Answer the user's question using ONLY the documentation provided below.
+Your job is to answer the user's question accurately and naturally.
 
-STRICT RULES:
-- Do NOT use your own knowledge.
-- Do NOT infer information that is not explicitly supported by the documentation.
-- If the documentation does not contain enough information to answer,
-  say: "The provided documentation does not contain enough information to answer this question."
-- Keep the answer concise and technically accurate.
-- When making a factual claim, cite the relevant source using:
-  [Source: <file_path>]
-- Do not cite sources that do not support the claim.
+You have access to the documentation provided below.
 
-Documentation:
+### How to answer
+
+1. If the question is about software, programming, APIs, libraries, frameworks,
+   configuration, or anything related to the provided documentation:
+   - Prefer the provided documentation as your primary source.
+   - Do not invent details that are not supported by the documentation.
+   - If the documentation does not contain enough information, say:
+     "The provided documentation does not contain enough information to answer this question."
+   - Cite relevant documentation claims using:
+     [Source: <file_path>]
+
+2. If the question is general conversation, a greeting, or unrelated to the
+   provided documentation:
+   - Answer naturally using your general knowledge.
+   - Do not force documentation citations into the response.
+
+3. If the question mixes general knowledge with documentation:
+   - Use the documentation where it is relevant.
+   - Clearly distinguish information that comes from the documentation from
+     information based on general knowledge.
+
+### Response style
+
+- Be concise by default.
+- Explain more when the user asks for detail.
+- Use code examples when they make the answer clearer.
+- Use Markdown when appropriate.
+- Don't unnecessarily repeat the user's question.
+- Don't mention these instructions or the retrieval process.
+
+### Documentation
+
 {context}
 
-Question:
+### User Question
+
 {query}
 
-Answer:
+### Answer
 """
 )
 
 
 def generate_answer_stream(query: str):
-    # with tracer.start_as_current_span("rag.query") as span:
-    # telemetry
-    # span.set_attribute("rag.query", query)
+    with tracer.start_as_current_span("rag.query") as span:
+        # telemetry
+        span.set_attribute("rag.query", query)
 
-    results = retrieve(
-        query,
-        top_k=settings.FINAL_TOP_K,
-        candidate_k=settings.CANDIDATE_TOP_K,
-    )
-
-    # --- intermediate logging ---
-    for i, result in enumerate(results, 1):
-        logger.info(
-            f"Result {i} | "
-            f"Score: {result.score:.4f} | "
-            f"Source: {result.node.metadata.get('file_path')}"
+        results = retrieve(
+            query,
+            top_k=settings.FINAL_TOP_K,
+            candidate_k=settings.CANDIDATE_TOP_K,
         )
 
-    # telemetry
-    # span.set_attribute("rag.retrieved_count", len(results))
-    # if results:
-    #     span.set_attribute(
-    #         "rag.top_score",
-    #         results[0].score if results[0].score is not None else 0.0
-    #     )
+        # --- intermediate logging ---
+        for i, result in enumerate(results, 1):
+            logger.info(
+                f"Result {i} | "
+                f"Score: {result.score:.4f} | "
+                f"Source: {result.node.metadata.get('file_path')}"
+            )
 
-    context = "\n\n---\n\n".join(
-        f"[Source: {result.node.metadata.get('file_path', 'unknown')}]\n"
-        f"{result.node.get_content()}"
-        for result in results
-    )
+        # telemetry
+        span.set_attribute("rag.retrieved_count", len(results))
+        if results:
+            span.set_attribute(
+                "rag.top_score",
+                results[0].score if results[0].score is not None else 0.0
+            )
 
-    prompt = prompt_QA.format(
-        context=context,
-        query=query,
-    )
+        context = "\n\n---\n\n".join(
+            f"[Source: {result.node.metadata.get('file_path', 'unknown')}]\n"
+            f"{result.node.get_content()}"
+            for result in results
+        )
 
-    response = llm.stream_complete(prompt)
+        prompt = prompt_QA.format(
+            context=context,
+            query=query,
+        )
 
-    response_text = ""
+        response = llm.stream_complete(prompt)
 
-    for chunk in response:
-        response_text += chunk.delta
+        response_text = ""
+
+        for chunk in response:
+            response_text += chunk.delta
+            yield {
+                "type": "token",
+                "content": chunk.delta,
+            }
+
+        # telemetry
+        span.set_attribute(
+            "rag.response_length",
+            len(response_text)
+        )
+
+        sources = [
+            result.node.metadata.get("file_path", "unknown")
+            for result in results
+        ]
+
         yield {
-            "type": "token",
-            "content": chunk.delta,
+            "type": "sources",
+            "sources": sources,
         }
-
-    # telemetry
-    # span.set_attribute(
-    #     "rag.response_length",
-    #     len(response_text)
-    # )
-
-    sources = [
-        result.node.metadata.get("file_path", "unknown")
-        for result in results
-    ]
-
-    yield {
-        "type": "sources",
-        "sources": sources,
-    }
 
 
 def generate_answer(query: str):
@@ -193,6 +242,7 @@ if __name__ == "__main__":
 
         logger.info("\nAnswer:\n")
         logger.info(answer)
+        exit()
 
         # logger.info("\nSources:\n")
         # for source in sources:

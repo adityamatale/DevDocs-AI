@@ -13,10 +13,15 @@
     --accent-hover: #6879ff;
 }
 
+html,
 body {
+    width: 100%;
+    height: 100%;
     margin: 0;
-    min-height: 100vh;
+    overflow: hidden;
+}
 
+body {
     font-family:
         Inter,
         -apple-system,
@@ -29,19 +34,27 @@ body {
 }
 
 
-/* ---------- Layout ---------- */
+/* ---------- Main Layout ---------- */
 
 .container {
     width: min(900px, 92%);
+    height: 100vh;
+
     margin: 0 auto;
-    padding: 70px 0 50px;
+    padding: 35px 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
 }
 
 
 /* ---------- Header ---------- */
 
 header {
-    margin-bottom: 45px;
+    flex-shrink: 0;
+    margin-bottom: 20px;
 }
 
 .logo {
@@ -92,19 +105,41 @@ header p {
 /* ---------- Answer ---------- */
 
 #answer {
-    min-height: 320px;
+    flex: 1;
+    min-height: 0;
 
     padding: 28px;
-
-    margin-bottom: 18px;
+    margin-bottom: 15px;
 
     background: var(--surface);
 
     border: 1px solid var(--border);
     border-radius: 14px;
 
+    overflow-y: auto;
+    overflow-x: hidden;
+
     box-shadow:
         0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+/* Answer scrollbar */
+
+#answer::-webkit-scrollbar {
+    width: 7px;
+}
+
+#answer::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#answer::-webkit-scrollbar-thumb {
+    background: #303640;
+    border-radius: 10px;
+}
+
+#answer::-webkit-scrollbar-thumb:hover {
+    background: #414957;
 }
 
 .placeholder {
@@ -116,9 +151,38 @@ header p {
 }
 
 
+/* ---------- Question ---------- */
+
+.question {
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+
+    border-bottom: 1px solid var(--border);
+
+    color: var(--muted);
+
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+
+/* ---------- Response ---------- */
+
+.response {
+    line-height: 1.7;
+
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+
+    color: var(--text);
+}
+
+
 /* ---------- Input ---------- */
 
 #query-form {
+    flex-shrink: 0;
+
     display: flex;
     align-items: stretch;
 
@@ -129,6 +193,7 @@ textarea {
     flex: 1;
 
     min-height: 58px;
+    max-height: 150px;
 
     padding: 17px 18px;
 
@@ -182,7 +247,8 @@ button {
 
     transition:
         background 0.2s,
-        transform 0.1s;
+        transform 0.1s,
+        opacity 0.2s;
 }
 
 button:hover {
@@ -193,49 +259,49 @@ button:active {
     transform: scale(0.97);
 }
 
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* ---------- Disabled Input ---------- */
+
+textarea:disabled {
+    opacity: 0.6;
+}
+
 
 /* ---------- Responsive ---------- */
 
 @media (max-width: 600px) {
 
     .container {
-        padding-top: 40px;
+        width: 94%;
+        padding: 25px 0;
+    }
+
+    header {
+        margin-bottom: 15px;
     }
 
     header h1 {
         font-size: 26px;
     }
 
+    #answer {
+        padding: 20px;
+    }
+
     #query-form {
         flex-direction: column;
+    }
+
+    textarea {
+        min-height: 55px;
     }
 
     button {
         height: 48px;
     }
-}
-
-
-.question {
-    margin-bottom: 24px;
-    padding-bottom: 18px;
-
-    border-bottom: 1px solid var(--border);
-
-    color: var(--muted);
-    font-size: 14px;
-}
-
-.response {
-    line-height: 1.7;
-    white-space: pre-wrap;
-}
-
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-textarea:disabled {
-    opacity: 0.6;
 }
