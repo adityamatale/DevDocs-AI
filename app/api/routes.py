@@ -11,6 +11,11 @@ import json
 router = APIRouter()
 
 
+@router.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @router.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest):
     # logger.info(f"Received query: {request.query}")

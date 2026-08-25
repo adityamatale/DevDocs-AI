@@ -5,31 +5,34 @@ llama-index-readers-file
 pymupdf
 
 llama-index-embeddings-huggingface
-llama-index-embeddings-openai
-
-opentelemetry-exporter-otlp-proto-http
-llama-index-observability-otel
-opentelemetry-exporter-otlp
-opentelemetry-sdk
-
-# for reranking
-FlagEmbedding
-
-fastapi
-uvicorn[standard]
+# llama-index-embeddings-openai
 
 llama-index-vector-stores-qdrant
 qdrant-client
 
+# Observability
+opentelemetry-exporter-otlp-proto-http
+llama-index-observability-otel
+opentelemetry-exporter-otlp
+opentelemetry-sdk
+opentelemetry-api
+
+# for reranking
+FlagEmbedding
+
+# API
+fastapi
+uvicorn[standard]
+
+# data bases
 psycopg[binary]
 sqlalchemy
 alembic
 
-opentelemetry-api
-opentelemetry-sdk
-
+# testing
 pytest
 httpx
 
-streamlit 
-requests
+# # frontend
+# streamlit 
+# requests

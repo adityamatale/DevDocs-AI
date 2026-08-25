@@ -10,11 +10,12 @@ General-purpose LLMs often hallucinate or go stale on fast-moving library docs. 
 
 - **Backend:** Python + FastAPI
 - **RAG framework:** LlamaIndex
-- **Vector DB:** Qdrant (local, Docker-managed)
+- **Vector DB:** Qdrant (Dockerized, persistent volume)
 - **Embeddings:** `Qwen/Qwen3-Embedding-0.6B` (1024-dim, cosine similarity), cached locally via Hugging Face
-- **Reranker:** BGE FlagReranker
-- **LLM:** Ollama (local)
-- **Deployment:** Dockerfile + `docker-compose.yml`
+- **Reranker:** BGE FlagReranker (`BAAI/bge-reranker-v2-m3`)
+- **LLM:** Ollama (runs on host machine)
+- **Tracing:** Jaeger (Dockerized, OTLP HTTP)
+- **Deployment:** Dockerfile + `docker-compose.yml` (`rag-api`, `qdrant`, `jaeger`; Ollama reached via `host.docker.internal`)
 
 ## Project Structure
 
@@ -142,12 +143,35 @@ streamlit run app.py
 Make sure the FastAPI backend is running (`uvicorn app.main:app`) before starting the frontend. Backend URLs are configured in `.streamlit/secrets.toml`.
 
 ### 🐳 Deployment
-- Containerized with a `Dockerfile` and `docker-compose.yml` for running the API and Qdrant together.
-- `setup.sh` for local environment bootstrap.
+
+Fully containerized via Docker Compose, running three services on a shared `devdocs_default` network (services talk to each other by name, e.g. `http://qdrant:6333`, `http://jaeger:4318`):
+
+- **rag-api** (`:8000`) — FastAPI + Uvicorn, LlamaIndex, Qdrant client, embedding + reranker models
+- **qdrant** (`:6333`) — vector DB, backed by a persistent named volume (`qdrant_data`) so collections survive container recreation. Existing collections (37.9k points, 1024-dim, cosine) were migrated from an ephemeral container into this volume and verified intact.
+- **jaeger** (`:16686` UI / `:4318` OTLP) — distributed tracing (Jaeger 2.20.0)
+
+Two host-side resources are mounted in rather than baked into the image:
+- `~/.cache/huggingface` → `/root/.cache/huggingface`, so embedding/reranker models aren't re-downloaded on every rebuild (~33 GB cache)
+- `qdrant_data` Docker volume → `/qdrant/storage`, for persistent vector storage (~1.6 GB)
+
+**Ollama runs on the host** (via Snap), not in Compose. It was reconfigured to listen on `*:11434` (was `127.0.0.1` only) so the container can reach it at `http://host.docker.internal:11434`, enabled via `extra_hosts: host-gateway`.
+
+Common commands:
+```bash
+docker compose up --build -d      # build & start all services
+docker compose logs -f rag-api    # tail a service's logs
+docker compose ps                 # check running containers
+docker compose down               # stop the stack
+```
+
+**Current limitation:** the RAG image installs CPU-only PyTorch, so embedding/reranking run on CPU (`torch.cuda.is_available()` → `False`); the host NVIDIA GPU isn't passed through yet. Next step is adding the NVIDIA Container Toolkit and a CUDA-enabled PyTorch build to move embedding/reranking onto GPU.
+
+- `setup.sh` for local (non-Docker) environment bootstrap.
 
 ## Known Limitations
 
 - Retrieval quality is still a work in progress — queries can surface off-topic results (e.g., a FastAPI-specific question returning LlamaIndex pages), which points to a retrieval/ranking gap rather than a generation problem.
+- Embedding/reranking currently run on CPU inside the container; GPU passthrough not yet enabled.
 
 ## Roadmap
 
@@ -155,7 +179,8 @@ Make sure the FastAPI backend is running (`uvicorn app.main:app`) before startin
 - [ ] Improved chunking strategy to boost retrieval precision
 - [ ] Query rewriting to better handle ambiguous or underspecified questions
 - [ ] Frontend UI
+- [ ] GPU passthrough for the RAG container (NVIDIA Container Toolkit + CUDA PyTorch)
 
 ## Status
 
-🔄 Actively in development — ingestion and core pipeline (retrieval → rerank → generation → API) are functional; retrieval-quality improvements and a frontend are next.
+🔄 Actively in development — ingestion and core pipeline (retrieval → rerank → generation → API) are functional, the full stack (RAG API, Qdrant, Jaeger) is containerized with persistent storage; GPU passthrough and further retrieval-quality improvements are next.

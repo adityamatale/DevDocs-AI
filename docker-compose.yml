@@ -1,0 +1,50 @@
+services:
+  
+  # main service
+  rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    ports:
+      - "8000:8000"
+    
+    env_file:
+      - .env
+
+    volumes:
+      - ${HF_CACHE_PATH:-~/.cache/huggingface}:/root/.cache/huggingface
+
+    # host is local machine - used to connect to ollama on local machine
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    depends_on:
+      - qdrant
+      - jaeger
+
+
+  # vector db service
+  qdrant:
+    image: qdrant/qdrant:latest
+
+    ports:
+      - "6333:6333"
+
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  
+  # telemetry service
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.20.0
+
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+
+
+# volumes ..?
+volumes:
+  qdrant_data:
+    external: true

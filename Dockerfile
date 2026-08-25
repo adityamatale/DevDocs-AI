@@ -6,6 +6,10 @@ WORKDIR /app
 
 # copy requirements into app | we do this first bcoz docker build uses cache ..so every time you make a file change, you wont have to download packages
 COPY requirements.txt .
+# Install CPU-only PyTorch first
+RUN pip install --no-cache-dir \
+    torch \
+    --index-url https://download.pytorch.org/whl/cpu
 # install dependencies by running the cmd for pip install
 RUN pip install --no-cache-dir -r requirements.txt  
 
