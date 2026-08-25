@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+# Device
+DEVICE = os.getenv("DEVICE")
+
 # OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # HuggingFace

@@ -13,7 +13,7 @@ from FlagEmbedding import FlagReranker
 
 reranker = FlagReranker(
     settings.RERANK_MODEL,
-    use_fp16=True,
+    use_fp16=settings.DEVICE == "cuda",
 )
 
 
