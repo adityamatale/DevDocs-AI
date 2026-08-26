@@ -1,0 +1,45 @@
+services:
+
+  rag-api:
+    image: ${DOCKERHUB_USERNAME}/devdocs-rag-api:latest
+
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .env
+
+    depends_on:
+      - qdrant
+      - jaeger
+
+  qdrant:
+    image: qdrant/qdrant:latest
+
+    ports:
+      - "6333:6333"
+
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.20.0
+
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+
+  frontend:
+    image: ${DOCKERHUB_USERNAME}/devdocs-frontend:latest
+
+    ports:
+      - "8501:8501"
+
+    depends_on:
+      - rag-api
+    
+    volumes:
+      - ./streamlit_client/.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+
+volumes:
+  qdrant_data:
