@@ -5,3 +5,5 @@ tracing.txt
 __pycache__/
 *.pyc
 data/
+streamlit_client/.streamlit/secrets.toml
+env.txt

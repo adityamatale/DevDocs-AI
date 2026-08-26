@@ -22,7 +22,10 @@ def get_retriever(candidate_k: int = 5):
     client = get_qdrant_client()
     vector_store = get_vector_store(client)
 
+    logger.info(f"embedding model loading ...")
     embed_model = get_embedding_model()
+    logger.info(f"embedding model loaded ...")
+
 
     index = VectorStoreIndex.from_vector_store(
         vector_store=vector_store,
@@ -36,7 +39,10 @@ def get_retriever(candidate_k: int = 5):
 
 def retrieve(query: str, top_k: int = 5, candidate_k: int = 20):
 
+    logger.info(f"get_retriver() started")
     retriever = get_retriever(candidate_k)
+    logger.info(f"get_retriver() finished")
+
     nodes = retriever.retrieve(query)
 
     #### for source/language-aware deduplication

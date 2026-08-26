@@ -6,6 +6,8 @@ services:
       context: .
       dockerfile: Dockerfile
 
+    gpus: all
+
     ports:
       - "8000:8000"
     
@@ -22,6 +24,13 @@ services:
     depends_on:
       - qdrant
       - jaeger
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
 
   # vector db service
@@ -42,6 +51,18 @@ services:
     ports:
       - "16686:16686"
       - "4318:4318"
+
+  # streamlit front end
+  frontend:
+    build:
+      context: ./streamlit_client
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    depends_on:
+      - rag-api
+    volumes:
+      - ./streamlit_client/.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
 
 
 # volumes ..?

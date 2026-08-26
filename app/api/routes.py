@@ -37,7 +37,7 @@ def query(request: QueryRequest):
 
 @router.post("/query/stream")
 def query_stream(request: QueryRequest):
-    # logger.info(f"Received query: {request.query}")
+    logger.info(f"Received query: {request.query}")
 
     def event_generator():
         try:

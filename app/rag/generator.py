@@ -102,11 +102,14 @@ def generate_answer_stream(query: str):
         # telemetry
         span.set_attribute("rag.query", query)
 
+        logger.info(f"Retrival started...")
         results = retrieve(
             query,
             top_k=settings.FINAL_TOP_K,
             candidate_k=settings.CANDIDATE_TOP_K,
         )
+        logger.info(f"Retrival finished...")
+
 
         # --- intermediate logging ---
         for i, result in enumerate(results, 1):
@@ -135,6 +138,7 @@ def generate_answer_stream(query: str):
             query=query,
         )
 
+        logger.info(f"LLM generation started...")
         response = llm.stream_complete(prompt)
 
         response_text = ""
