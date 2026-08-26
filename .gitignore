@@ -7,3 +7,4 @@ __pycache__/
 data/
 streamlit_client/.streamlit/secrets.toml
 env.txt
+integration.yaml

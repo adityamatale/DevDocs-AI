@@ -6,7 +6,9 @@ set -e
 # DevDocs AI - Setup Script
 # ============================================
 
-COMPOSE_FILE="docker-compose.yml"
+COMPOSE_LOCAL="docker-compose.yml"
+COMPOSE_PROD="docker-compose.prod.yml"
+COMPOSE_FILE="$COMPOSE_LOCAL"
 
 # --------------------------------------------
 # Colors / formatting
@@ -42,7 +44,8 @@ Usage:
     ./setup.sh [OPTION]
 
 Options:
-    --docker    Build and start Docker services
+    --local     Build and start Docker services locally
+    --prod      Pull and start Docker services from DockerHub
     --ingest    Run document ingestion
     --all       Start Docker services and run ingestion
     --status    Show running Docker services
@@ -99,6 +102,32 @@ setup_env() {
 }
 
 # --------------------------------------------
+# Select environment
+# --------------------------------------------
+
+select_environment() {
+
+    echo
+    echo "Select environment:"
+    echo "1) Local (build images)"
+    echo "2) Production (DockerHub)"
+    echo
+
+    read -r -p "Select option [1]: " env_choice
+
+    case "$env_choice" in
+        2)
+            COMPOSE_FILE="$COMPOSE_PROD"
+            ;;
+        *)
+            COMPOSE_FILE="$COMPOSE_LOCAL"
+            ;;
+    esac
+
+    info "Using $COMPOSE_FILE"
+}
+
+# --------------------------------------------
 # Check compose file
 # --------------------------------------------
 
@@ -120,9 +149,13 @@ start_docker() {
     check_compose_file
     setup_env
 
-    info "Building and starting Docker services..."
+    info "Starting Docker services using $COMPOSE_FILE..."
 
-    docker compose up --build -d
+    if [ "$COMPOSE_FILE" = "$COMPOSE_LOCAL" ]; then
+        docker compose -f "$COMPOSE_FILE" up --build -d
+    else
+        docker compose -f "$COMPOSE_FILE" up --pull always -d
+    fi
 
     info "Waiting for RAG API to become healthy..."
 
@@ -130,7 +163,7 @@ start_docker() {
 
     while [ $retries -gt 0 ]; do
 
-        status=$(docker compose ps --format '{{.Service}} {{.Health}}' 2>/dev/null || true)
+        status=$(docker compose -f "$COMPOSE_FILE" ps --format '{{.Service}} {{.Health}}' 2>/dev/null || true)
 
         if echo "$status" | grep -q "rag-api healthy"; then
             info "RAG API is healthy."
@@ -144,7 +177,7 @@ start_docker() {
 
     error "RAG API did not become healthy."
     warn "Check logs with:"
-    echo "    docker compose logs rag-api"
+    echo "    docker compose -f $COMPOSE_FILE logs rag-api"
 
     exit 1
 }
@@ -159,7 +192,7 @@ run_ingestion() {
 
     info "Starting document ingestion..."
 
-    docker compose exec rag-api python -m app.rag.ingestion
+    docker compose -f "$COMPOSE_FILE" exec rag-api python -m app.rag.ingestion
 
     info "Ingestion completed."
 }
@@ -174,7 +207,7 @@ stop_services() {
 
     info "Stopping Docker services..."
 
-    docker compose down
+    docker compose -f "$COMPOSE_FILE" down
 
     info "Services stopped."
 }
@@ -193,7 +226,7 @@ clean_environment() {
     case "$answer" in
         y|Y|yes|YES)
             info "Removing containers and volumes..."
-            docker compose down -v
+            docker compose -f "$COMPOSE_FILE" down -v
             info "Docker environment cleaned."
             ;;
         *)
@@ -201,7 +234,6 @@ clean_environment() {
             ;;
     esac
 }
-
 
 # --------------------------------------------
 # Show service status
@@ -211,9 +243,8 @@ show_status() {
 
     check_compose_file
 
-    docker compose ps
+    docker compose -f "$COMPOSE_FILE" ps
 }
-
 
 # --------------------------------------------
 # Interactive mode
@@ -225,6 +256,9 @@ interactive_menu() {
     echo "============================================"
     echo "        DevDocs AI Setup"
     echo "============================================"
+
+    select_environment
+
     echo
     echo "1) Start Docker services"
     echo "2) Run document ingestion"
@@ -286,7 +320,14 @@ interactive_menu() {
 
 case "${1:-}" in
 
-    --docker)
+    --local)
+        COMPOSE_FILE="$COMPOSE_LOCAL"
+        check_prerequisites
+        start_docker
+        ;;
+
+    --prod)
+        COMPOSE_FILE="$COMPOSE_PROD"
         check_prerequisites
         start_docker
         ;;
@@ -297,20 +338,24 @@ case "${1:-}" in
         ;;
 
     --all)
+        COMPOSE_FILE="$COMPOSE_LOCAL"
         check_prerequisites
         start_docker
         run_ingestion
         ;;
 
     --status)
+        check_prerequisites
         show_status
         ;;
 
     --stop)
+        check_prerequisites
         stop_services
         ;;
 
     --clean)
+        check_prerequisites
         clean_environment
         ;;
 

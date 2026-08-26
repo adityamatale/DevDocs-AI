@@ -3,15 +3,30 @@ services:
   rag-api:
     image: ${DOCKERHUB_USERNAME}/devdocs-rag-api:latest
 
+    gpus: all
+
     ports:
       - "8000:8000"
 
     env_file:
       - .env
 
+    volumes:
+      - ${HF_CACHE_PATH:-~/.cache/huggingface}:/root/.cache/huggingface
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     depends_on:
       - qdrant
       - jaeger
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -36,10 +51,13 @@ services:
       - "8501:8501"
 
     depends_on:
-      - rag-api
+      rag-api:
+        condition: service_healthy
     
     volumes:
       - ./streamlit_client/.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
 
+
 volumes:
   qdrant_data:
+    external: true
