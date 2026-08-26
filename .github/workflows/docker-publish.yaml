@@ -25,3 +25,10 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/devdocs-rag-api:latest
+
+      - name: Build and push Frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./streamlit_client
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/devdocs-frontend:latest
